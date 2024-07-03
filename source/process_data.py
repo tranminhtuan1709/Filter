@@ -9,7 +9,7 @@ def create_an_image_dict(image : xml.etree.ElementTree) -> dict:
         Create an image dictionary containing image details.
 
         Args:
-            image (xml.etree.ElementTree) : an XML element containing an image.
+            image (xml.etree.ElementTree): an XML element containing an image.
         Returns:
             A dictionary containing information of the image:
             - filename (str)
@@ -70,16 +70,16 @@ def crop_images(image_list: list) -> tuple:
             image_list (list): a list contiaining dictionaries of all images.
 
         Returns:
-            cropped_images, adjusted_landmarks (tuple): a tuple containing two lists, the
-            first list contains all cropped images in type PIL.Image, the second list contains
-            landmark points of each image in type numpy array.
+            cropped_images, adjusted_landmarks (tuple): a tuple containing two
+            lists, the first list contains all cropped images in type PIL.Image,
+            the second list contains landmark points in type numpy array.
     '''
     
     cropped_images = []
     adjusted_landmarks = []
 
     for image_dict in image_list:
-        image = Image.open('resources\\' + image_dict['filename'])
+        image = Image.open('resources\\' + image_dict['filename']).convert('RGB')
         
         box_top = image_dict['box_top']
         box_left = image_dict['box_left']
