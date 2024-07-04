@@ -28,6 +28,19 @@ transform_test = albumentations.Compose([
 def augment_data(cropped_images: list,
                        adjusted_landmarks: list,
                        transform_train: albumentations.Compose) -> tuple:
+    '''
+        Augment data.
+
+        Args:
+            cropped_images (list)
+            adjusted_landmarks (list)
+            transform_train (albumentation.Compose)
+        
+        Returns:
+            augmented_images (list): a list containing all augmented images.
+            augmented_landmarks (list): a list containing all augmented landmarks.
+    '''
+
     augmented_images = []
     augmented_landmarks = []
 
