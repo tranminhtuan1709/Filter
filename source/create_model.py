@@ -125,7 +125,7 @@ def train_model(
             best_test_loss = test_loss
             torch.save(
                 model.state_dict(),
-                '/kaggle/working/best_model.pth'
+                'resources/trained_model.pth'
             )
     
     matplotlib.pyplot.plot(

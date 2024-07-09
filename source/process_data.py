@@ -99,7 +99,7 @@ def crop_images(image_list: list) -> tuple:
 
     for image_dict in image_list:
         image = Image.open(
-            '/kaggle/input/filter-dataset/300w/' + image_dict['filename']
+            'resources/' + image_dict['filename']
         ).convert('RGB')
 
         box_top = image_dict['box_top']

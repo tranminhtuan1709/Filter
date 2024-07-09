@@ -13,6 +13,8 @@ import cv2
 import mediapipe
 import pandas
 
+import create_model
+
 
 #_____________________________________________________________________________
 def get_bounding_boxes(image: numpy.ndarray) -> list:
@@ -59,8 +61,9 @@ def crop_faces(
     
     return faces
 
+#_____________________________________________________________________________
 def get_landmarks(
-    model: LandmarkDetectionModel,
+    model: create_model.LandmarkDetectionModel,
     transformation: albumentations.Compose,
     faces: list,
     device: torch.device
@@ -77,7 +80,7 @@ def get_landmarks(
         face = face.to(device)
         model.to(device)
         
-        landmark = model(face)
+        landmark = model(face).squeeze(0).squeeze(0)
         
         landmarks.append(landmark.cpu().detach().numpy())
     
@@ -96,11 +99,14 @@ def adjust_landmarks(
     adjusted_landmarks = []
     
     for i in range(len(bounding_boxes)):
-        x = bounding_boxes[i][0]
-        y = bounding_boxes[i][1]
+        box_x, box_y, box_w, box_h = bounding_boxes[i]
+        adjusted = []
+        for x, y in landmarks[i]:
+            x = (x + 0.5) * box_w + box_x
+            y = (y + 0.5) * box_h + box_y
+
+            adjusted.append([x, y])
         
-        landmarks[i] += (x, y)
-        
-        adjusted_landmarks.append(landmarks[i])
+        adjusted_landmarks.append(adjusted)
     
-    return adjusted_landmarks
+    return numpy.array(adjusted_landmarks, dtype=numpy.int32)
