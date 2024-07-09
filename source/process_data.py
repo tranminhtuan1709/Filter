@@ -155,3 +155,47 @@ def augment_data(
         augmented_landmarks.append(keypoint)
     
     return augmented_images, augmented_landmarks
+
+transform_train = albumentations.Compose(
+    [
+        albumentations.Resize(height=224, width=224),
+        albumentations.RGBShift(
+            r_shift_limit=(-20, 20),
+            g_shift_limit=(-20, 20),
+            b_shift_limit=(-20, 20),
+            p=1.0
+        ),
+        
+        albumentations.Perspective(scale=(0.05, 0.1), keep_size=True, p=0.01),
+        albumentations.Rotate(limit=(-45, 45), p=1.00),
+        albumentations.RandomBrightnessContrast(p=0.5),
+        albumentations.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        ),
+        
+        ToTensorV2(),
+    ],
+    
+    keypoint_params=albumentations.KeypointParams(
+        format='xy',
+        remove_invisible=False
+    )
+)
+
+transform_test = albumentations.Compose(
+    [
+        albumentations.Resize(height=224, width=224),
+        albumentations.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        ),
+        
+        ToTensorV2(),
+    ],
+    
+    keypoint_params=albumentations.KeypointParams(
+        format='xy',
+        remove_invisible=False
+    )
+)
