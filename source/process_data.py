@@ -1,15 +1,27 @@
-import xml
-import xml.etree
 import xml.etree.ElementTree
 import numpy
+import torch
+import matplotlib
+import albumentations
+from albumentations.pytorch import ToTensorV2
 from PIL import Image
+from torch.utils.data import DataLoader
+import torchvision.models
+import tqdm
+import torch.optim
+import cv2
+import mediapipe
+import pandas
+
 
 def create_an_image_dict(image : xml.etree.ElementTree) -> dict:
+    
     '''
         Create an image dictionary containing image details.
 
         Args:
-            image (xml.etree.ElementTree): an XML element containing an image.
+            image (xml.etree.ElementTree): an XML element containing
+            an image.
         Returns:
             A dictionary containing information of the image:
             - filename (str)
@@ -29,21 +41,25 @@ def create_an_image_dict(image : xml.etree.ElementTree) -> dict:
 
     box = image.find('box')
 
-    image_dict['box_top'] = int(box.attrib['top'])
-    image_dict['box_left'] = int(box.attrib['left'])
+    image_dict['box_left'] = int(box.attrib['top'])
+    image_dict['box_top'] = int(box.attrib['left'])
     image_dict['box_width'] = int(box.attrib['width'])
     image_dict['box_height'] = int(box.attrib['height'])
 
     landmark_tags = box.findall('part')
-    landmark_list = numpy.array([(int(landmark_tag.attrib['x']),
-                                  int(landmark_tag.attrib['y']))
-                                  for landmark_tag in landmark_tags])
-    
+    landmark_list = numpy.array(
+        [
+            (int(landmark_tag.attrib['x']), int(landmark_tag.attrib['y']))
+            for landmark_tag in landmark_tags
+        ]
+    )
+
     image_dict['landmark_list'] = landmark_list
 
     return image_dict
 
 def create_image_list(root: xml.etree.ElementTree) -> list:
+    
     '''
         Create a list containing dictionaries of all images.
 
@@ -63,24 +79,29 @@ def create_image_list(root: xml.etree.ElementTree) -> list:
     return image_list
 
 def crop_images(image_list: list) -> tuple:
+    
     '''
         Crop all original images and adjust landmark points.
 
         Agrs:
-            image_list (list): a list contiaining dictionaries of all images.
+            image_list (list): a list contiaining dictionaries
+            of all images.
 
         Returns:
-            cropped_images, adjusted_landmarks (tuple): a tuple containing two
-            lists, the first list contains all cropped images in type PIL.Image,
-            the second list contains landmark points in type numpy array.
+            cropped_images, adjusted_landmarks (tuple): a tuple containing
+            two lists, the first list contains all cropped images
+            in type PIL.Image, the second list contains landmark points
+            in type numpy array.
     '''
     
     cropped_images = []
     adjusted_landmarks = []
 
     for image_dict in image_list:
-        image = Image.open('resources\\' + image_dict['filename']).convert('RGB')
-        
+        image = Image.open(
+            '/kaggle/input/filter-dataset/300w/' + image_dict['filename']
+        ).convert('RGB')
+
         box_top = image_dict['box_top']
         box_left = image_dict['box_left']
         box_bottom = image_dict['box_top'] + image_dict['box_height']
@@ -88,9 +109,49 @@ def crop_images(image_list: list) -> tuple:
 
         image = image.crop((box_left, box_top, box_right, box_bottom))
 
-        landmarks = image_dict['landmark_list'] - numpy.array([(box_left, box_top)])
+        landmarks = image_dict['landmark_list'] - \
+            numpy.array([(box_left, box_top)])
 
         cropped_images.append(image)
         adjusted_landmarks.append(landmarks)
 
     return cropped_images, adjusted_landmarks
+
+def augment_data(
+    cropped_images: list,
+    adjusted_landmarks: list,
+    transform: albumentations.Compose
+) -> tuple:
+    
+    '''
+        Augment data.
+
+        Args:
+            cropped_images (list)
+            adjusted_landmarks (list)
+            transform (albumentation.Compose)
+        
+        Returns:
+            augmented_images (list): contains all augmented images.
+            augmented_landmarks (list): contains all augmented landmarks.
+    '''
+
+    augmented_images = []
+    augmented_landmarks = []
+
+    for i in range(len(cropped_images)):
+        augment = transform(
+            image=numpy.array(cropped_images[i]),
+            keypoints=adjusted_landmarks[i]
+        )
+        
+        image = augment['image']
+        channels, width, height = augment['image'].shape
+        keypoint = augment['keypoints'] / numpy.array([width, height]) - 0.5
+        keypoint = torch.tensor(data=keypoint, dtype=torch.float32)
+        channels = channels
+
+        augmented_images.append(image)
+        augmented_landmarks.append(keypoint)
+    
+    return augmented_images, augmented_landmarks

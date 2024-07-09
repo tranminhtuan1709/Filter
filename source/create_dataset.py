@@ -1,43 +1,65 @@
-import matplotlib.pyplot
+import xml.etree.ElementTree
+import numpy
 import torch
-from torch.utils.data import DataLoader
 import matplotlib
+import albumentations
+from albumentations.pytorch import ToTensorV2
+from PIL import Image
+from torch.utils.data import DataLoader
+import torchvision.models
+import tqdm
+import torch.optim
+import cv2
+import mediapipe
+import pandas
 
 
-class LandmarkDataset(DataLoader):
-    def __init__(self, images: torch.Tensor, labels: torch.Tensor) -> None:
-        self.images = images
-        self.labels = labels
-
-    def __len__(self) -> int:
+class LandmarkDataset(torch.utils.data.Dataset):
+    def __init__(self, images: list, landmarks: list) -> None:
+        
         '''
-            Returns the lenght of labels.
+            Initialization.
+            
+            Args:
+                images (list): a list containing all augmented images in
+                the form of tensor.
+                landmarks (list): a list containing all augmented landmark
+                points in the form of tensor.
+            
+            Returns:
+                None
+        '''
+        
+        self.images = images
+        self.landmarks = landmarks
+    
+    def __len__(self) -> int:
+        
+        '''
+            Returns the length of data.
 
             Args:
 
             Returns:
-                An integer value that is the lenght of labels.
+                An integer value that is the length of data.
         '''
 
-        return len(self.labels)
+        return len(self.images)
 
-    def __getitem__(self, idx: int) -> tuple:
+    def __getitem__(self, index: int) -> tuple:
+        
         '''
-            Returns specified items at index idx.
+            Returns specified items at the given index.
 
             Args:
-                idx (int): the index of the required item.
+                index (int): the index of the required item.
             
             Returns:
                 A tuple containing required items.
         '''
 
-        image = self.images[idx]
-        label = self.labels[idx]
+        image = self.images[index]
+        landmark = self.landmarks[index]
 
-        return image, label
-
-def draw(image, landmark):
-    matplotlib.pyplot.imshow(image)
-    landmark = (landmark + 0.5) * 224
-    matplotlib.pyplot.scatter(landmark[:, 0], landmark[:, 1], s=3, c='cyan')
+        return image, landmark
+    
