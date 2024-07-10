@@ -46,7 +46,7 @@ else:
             print("Error: Could not read the frame.")
             break
 
-        img = cv2.flip(src=frame, flipCode=1)
+        img = frame
 
         bboxes = process_input.get_bounding_boxes(img)
         
