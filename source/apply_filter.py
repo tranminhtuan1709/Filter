@@ -1,28 +1,21 @@
-import xml.etree.ElementTree
 import numpy
-import torch
-import matplotlib
-import albumentations
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader
-import torchvision.models
-import tqdm
-import torch.optim
 import cv2
-import mediapipe
 import pandas
-from skimage.exposure import match_histograms
 
 import delaunay_triangle
-import process_input
-import create_model
 
-#_____________________________________________________________________________
+
 def load_filter(filter_path: str) -> tuple:
-    
     '''
-    
+        Load the filter image and its csv file.
+
+        Args:
+            filter_path (str): name of the filter (not containing the
+            file type)
+
+        Returns:
+            filter image (numpy.ndarray): the filter image.
+            filter_landmark (numpy.ndarray): landmark points of the filter.
     '''
     
     filter_image = cv2.imread(filter_path + '.png')
@@ -37,39 +30,76 @@ def load_filter(filter_path: str) -> tuple:
 
     return filter_image, filter_landmark
 
-#_____________________________________________________________________________
-def show_triangles(triangles, img):
+
+def show_triangles(triangles: numpy.ndarray, img: numpy.ndarray) -> None:
+    '''
+        Show Delaunay Triangles on the given image.
+
+        Args:
+            triangles (numpy.ndarray): contains delaunay triangles.
+            img (numpy.ndarray): the given image.
+        
+        Returns:
+            None
+    '''
+
     for triangle in triangles:
         p1 = triangle[0]
         p2 = triangle[1]
         p3 = triangle[2]
 
-        cv2.line(img, p1, p2, color=(0, 255, 0), thickness=1)
-        cv2.line(img, p1, p3, color=(0, 255, 0), thickness=1)
-        cv2.line(img, p3, p2, color=(0, 255, 0), thickness=1)
+        cv2.line(img=img, pt1=p1, pt2=p2, color=(0, 255, 0), thickness=1)
+        cv2.line(img=img, pt1=p2, pt2=p3, color=(0, 255, 0), thickness=1)
+        cv2.line(img=img, pt3=p1, pt2=p1, color=(0, 255, 0), thickness=1)
     
-    cv2.imshow('ABC', img)
+    cv2.imshow(winname='Delaunay Trianglation', mat=img)
 
-#_____________________________________________________________________________
 
-def show_landmark(landmarks, img):
-    for landmark in landmarks:
-        cv2.circle(img, landmark, radius=2, color=(255, 255, 0), thickness=-1)
+def show_landmark(landmark: numpy.ndarray, img: numpy.ndarray) -> None:
+    '''
+        Show landmark points on the given image.
+
+        Args:
+            landmark (numpy.ndarray): the given landmark points to be shown.
+            img (numpy.ndarray): the given image.
+        
+        Returns:
+            None
+    '''
+
+    for point in landmark:
+        cv2.circle(
+            img=img, center=point, radius=2, color=(255, 0, 0), thickness=-1
+        )
     
-    cv2.imshow('ABC', img)
-#_____________________________________________________________________________
+    cv2.imshow('Landmark Points', img)
+
+
 def apply_filter(
     face_image: numpy.ndarray,
     face_landmark: numpy.ndarray,
     filter_image: numpy.ndarray,
     filter_landmark: numpy.ndarray,
 ) -> numpy.ndarray:
-    
     '''
-    
+        Apply filter image onto the given image.
+
+        Args:
+            face_image (numpy.ndarray): the image containing human faces to
+            be applied a filter.
+            face_landmark (numpy.ndarray): landmark points of one human face
+            on the given image.
+            filter_image (numpy.ndarray): the image of a filter.
+            filter_landmark (numpy.ndarray): landmark points of a filter.
+        
+        Returns:
+            result (numpy.ndarray): an image that is applied a filter.
     '''
 
-    face_triangles = delaunay_triangle.get_triangle_list(face_landmark)
+    face_triangles = delaunay_triangle.get_triangle_list(
+        landmark=face_landmark
+    )
+
     filter_triangles = delaunay_triangle.get_corresponding_triangles(
         triangle_list=face_triangles,
         landmarks_1=face_landmark,
@@ -90,13 +120,13 @@ def apply_filter(
         image=filter_image
     )
 
-    filter_affine_triangles = []
-
     cv2.fillConvexPoly(
         img=face_image,
         points=cv2.convexHull(points=face_landmark),
         color=(0, 0, 0)
     )
+
+    filter_affine_triangles = []
 
     for i in range(len(face_triangles)):
         triangle_1 = face_triangles[i]
@@ -116,16 +146,19 @@ def apply_filter(
         points_1 = numpy.array(
             [[p1[0] - x1, p1[1] - y1],
              [p2[0] - x1, p2[1] - y1],
-             [p3[0] - x1, p3[1] - y1]], dtype=numpy.float32
+             [p3[0] - x1, p3[1] - y1]],
         )
 
         points_2 = numpy.array(
             [[p4[0] - x2, p4[1] - y2],
              [p5[0] - x2, p5[1] - y2],
-             [p6[0] - x2, p6[1] - y2]], dtype=numpy.float32
+             [p6[0] - x2, p6[1] - y2]],
         )
 
-        M = cv2.getAffineTransform(points_2, points_1)
+        M = cv2.getAffineTransform(
+            numpy.float32(points_2),
+            numpy.float32(points_1)
+        )
 
         warped_triangle = cv2.warpAffine(
             src=numpy.float32(filter_cropped_triangles[i]),
@@ -146,124 +179,3 @@ def apply_filter(
         face_image[y:y + h, x:x + w] = dst_area
     
     return face_image
-
-
-
-
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-    print("Error: Could not open the camera.")
-else:
-    while True:
-        # Capture a frame
-        ret, frame = cap.read()
-
-        if not ret:
-            print("Error: Could not read the frame.")
-            break
-
-        # Display the captured frame
-        img = frame
-
-        transform_input = albumentations.Compose(
-            [
-                albumentations.Resize(height=224, width=224),
-                albumentations.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225]
-                ),
-                
-                ToTensorV2(),
-            ]
-        )
-        
-        model = create_model.LandmarkDetectionModel(68)
-        model.load_state_dict(torch.load('resources/trained_model.pth'))
-        device = torch.device('cpu')
-        model.to(device)
-
-        bbox = process_input.get_bounding_boxes(img)
-        faces = process_input.crop_faces(bbox, img)
-        landmarks = process_input.get_landmarks(model, transform_input, faces, device)
-        adjusted_landmarks = process_input.adjust_landmarks(landmarks, bbox)
-        
-        filter_image, filter_landmark = load_filter('resources/filters/anonymous')
-
-        faces2 = [filter_image]
-        landmarks2 = process_input.get_landmarks(model, transform_input, faces2, device)
-        adjusted_landmarks2 = process_input.adjust_landmarks(landmarks2, [(0, 0, filter_image.shape[1], filter_image.shape[0])])
-
-        filter_landmark = adjusted_landmarks2[0]
-
-        show_triangles(delaunay_triangle.get_triangle_list(adjusted_landmarks[0]), img)
-
-        # result = apply_filter(
-        #     face_image=img,
-        #     face_landmark=adjusted_landmarks[0],
-        #     filter_image=filter_image,
-        #     filter_landmark=filter_landmark 
-        # )
-
-        # cv2.imshow('Result', result)
-
-        # Check for a key press
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    # Release the camera and close all windows
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-
-
-
-
-# img = cv2.imread('resources/my_face.png')
-# img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-# transform_input = albumentations.Compose(
-#     [
-#         albumentations.Resize(height=224, width=224),
-#         albumentations.Normalize(
-#             mean=[0.485, 0.456, 0.406],
-#             std=[0.229, 0.224, 0.225]
-#         ),
-        
-#         ToTensorV2(),
-#     ]
-# )
-
-# model = create_model.LandmarkDetectionModel(68)
-# model.load_state_dict(torch.load('resources/trained_model.pth'))
-# device = torch.device('cpu')
-# model.to(device)
-
-# bbox = process_input.get_bounding_boxes(img)
-# faces = process_input.crop_faces(bbox, img)
-# landmarks = process_input.get_landmarks(model, transform_input, faces, device)
-# adjusted_landmarks = process_input.adjust_landmarks(landmarks, bbox)
-
-# filter_image, filter_landmark = load_filter('resources/filters/anonymous')
-
-# faces2 = [filter_image]
-# landmarks2 = process_input.get_landmarks(model, transform_input, faces2, device)
-# adjusted_landmarks2 = process_input.adjust_landmarks(landmarks2, [(0, 0, filter_image.shape[1], filter_image.shape[0])])
-
-# filter_landmark = adjusted_landmarks2[0]
-
-# # result = apply_filter(
-# #     face_image=img,
-# #     face_landmark=adjusted_landmarks[0],
-# #     filter_image=filter_image,
-# #     filter_landmark=filter_landmark 
-# # )
-
-# show_triangles(delaunay_triangle.get_triangle_list(adjusted_landmarks[0]), img)
-
-# #cv2.imshow('Result', result)
-
-
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()

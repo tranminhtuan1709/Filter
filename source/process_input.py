@@ -1,26 +1,21 @@
-import xml.etree.ElementTree
 import numpy
 import torch
-import matplotlib
 import albumentations
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader
-import torchvision.models
-import tqdm
 import torch.optim
-import cv2
 import mediapipe
-import pandas
 
 import create_model
 
 
-#_____________________________________________________________________________
 def get_bounding_boxes(image: numpy.ndarray) -> list:
-    
     '''
-    
+        Get all bounding boxes around human faces in an image.
+
+        Args:
+            image (numpy.ndarray)
+        
+        Returns:
+            A list containing all bounding boxes of human faces.
     '''
     
     bounding_boxes = []
@@ -42,16 +37,19 @@ def get_bounding_boxes(image: numpy.ndarray) -> list:
                 
                 bounding_boxes.append((x, y, w, h))
     
-    return bounding_boxes
+    return numpy.array(bounding_boxes, dtype=numpy.int32)
 
-#_____________________________________________________________________________
-def crop_faces(
-    bounding_boxes: list,
-    image: numpy.ndarray
-) -> list:
-    
+
+def crop_faces(bounding_boxes: list, image: numpy.ndarray) -> list:
     '''
-    
+        Crop human faces following the give bounding box list.
+
+        Args:
+            bounding_boxes (list)
+            image (numpy.ndarray)
+
+        Returns:
+            A list containing parts of the given image that contain human faces.
     '''
     
     faces = []
@@ -61,52 +59,60 @@ def crop_faces(
     
     return faces
 
-#_____________________________________________________________________________
-def get_landmarks(
+
+def get_landmark(
     model: create_model.LandmarkDetectionModel,
     transformation: albumentations.Compose,
-    faces: list,
+    image: numpy.ndarray,
     device: torch.device
 ) -> numpy.ndarray:
-    
     '''
-    
-    '''
-    
-    landmarks = []
-    
-    for face in faces:
-        face = transformation(image=face)['image'].unsqueeze(0)
-        face = face.to(device)
-        model.to(device)
-        
-        landmark = model(face).squeeze(0).squeeze(0)
-        
-        landmarks.append(landmark.cpu().detach().numpy())
-    
-    return numpy.array(landmarks)
+        Find landmark points in an image that containing only one object.
 
-#_____________________________________________________________________________
-def adjust_landmarks(
-    landmarks: numpy.ndarray,
-    bounding_boxes: list
+        Args:
+            model (create_model.LandmarkDetectionModel)
+            transformation (albumentations.Compose)
+            faces (list)
+            device (torch.device)
+
+        Returns:
+            68 landmark points for the object in the given image.
+    '''
+
+    image = transformation(image=image)['image'].unsqueeze(0)
+    face = image.to(device)
+    model.to(device)
+    
+    landmark = model(image).squeeze(0).squeeze(0)
+        
+    return landmark.cpu().detach().numpy()
+
+
+def adjust_landmark(
+    landmark: numpy.ndarray,
+    bounding_box: list
 ) -> numpy.ndarray:
-    
     '''
-    
-    '''
-    
-    adjusted_landmarks = []
-    
-    for i in range(len(bounding_boxes)):
-        box_x, box_y, box_w, box_h = bounding_boxes[i]
-        adjusted = []
-        for x, y in landmarks[i]:
-            x = (x + 0.5) * box_w + box_x
-            y = (y + 0.5) * box_h + box_y
+        Adjust coordinates of landmark points following the size of the
+        original image.
 
-            adjusted.append([x, y])
-        
-        adjusted_landmarks.append(adjusted)
+        Args:
+            landmark (numpy.ndarray)
+            bounding_box (list)
+
+        Returns:
+            Adjusted landmark points.
+    '''
     
-    return numpy.array(adjusted_landmarks, dtype=numpy.int32)
+    adjusted_landmark = []
+    print('bounding box haha:', bounding_box)
+
+    box_x, box_y, box_w, box_h = bounding_box
+    
+    for x, y in landmark:
+        x = (x + 0.5) * box_w + box_x
+        y = (y + 0.5) * box_h + box_y
+        
+        adjusted_landmark.append([x, y])
+    
+    return numpy.array(adjusted_landmark, dtype=numpy.int32)

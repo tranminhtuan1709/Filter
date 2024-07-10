@@ -1,22 +1,12 @@
-import xml.etree.ElementTree
 import numpy
 import torch
 import matplotlib
-import albumentations
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader
 import torchvision.models
-import tqdm
 import torch.optim
-import cv2
-import mediapipe
-import pandas
 
 
 class LandmarkDetectionModel(torch.nn.Module):
     def __init__(self, num_of_point: int) -> None:
-        
         '''
             Initializes a landmark detection mode using efficientnet_b0 and
             specifies classifier.
@@ -35,6 +25,7 @@ class LandmarkDetectionModel(torch.nn.Module):
             weights=torchvision.models.EfficientNet_B0_Weights.DEFAULT,
             progress=True
         )
+
         self.model.classifier = torch.nn.Sequential(
             torch.nn.Dropout(p=0.2, inplace=True),
             torch.nn.Linear(self.model.classifier[1].in_features, 256),
@@ -43,16 +34,15 @@ class LandmarkDetectionModel(torch.nn.Module):
             torch.nn.Linear(256, num_of_point * 2)
         )
     
-    def forward(self, inp: torch.tensor) -> torch.tensor:
-        
+    def forward(self, inp: torch.tensor) -> torch.Tensor:
         '''
             Pass an image into the model and return the result.
             
             Args:
-                inp (torch.tensor): an image in the form of tensor.
+                inp (torch.tensor): an image in the type of tensor.
             
             Returns:
-                Landmarks point of input image in the form of tensor.
+                Landmarks point of input image in the type of tensor.
         '''
         
         inp = self.model(inp)
@@ -67,7 +57,6 @@ def train_model(
     device: torch.device,
     num_of_epoch: int
 ) -> torch.nn.Module:
-    
     '''
         Train the given model using optimizer, MSELoss criteria and the
         number of epoch.
@@ -92,6 +81,7 @@ def train_model(
     for epoch in range(num_of_epoch):
         model.train()
         running_loss = 0.0
+
         for image, landmark in train_data:
             image = image.to(device)
             landmark = landmark.to(device)
@@ -109,6 +99,7 @@ def train_model(
     
         model.eval()
         test_loss = 0.0
+
         with torch.no_grad():
             for image, landmark in train_data:
                 image = image.to(device)

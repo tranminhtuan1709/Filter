@@ -1,21 +1,13 @@
 import xml.etree.ElementTree
 import numpy
 import torch
-import matplotlib
 import albumentations
 from albumentations.pytorch import ToTensorV2
 from PIL import Image
-from torch.utils.data import DataLoader
-import torchvision.models
-import tqdm
 import torch.optim
-import cv2
-import mediapipe
-import pandas
 
 
 def create_an_image_dict(image : xml.etree.ElementTree) -> dict:
-    
     '''
         Create an image dictionary containing image details.
 
@@ -58,8 +50,8 @@ def create_an_image_dict(image : xml.etree.ElementTree) -> dict:
 
     return image_dict
 
+
 def create_image_list(root: xml.etree.ElementTree) -> list:
-    
     '''
         Create a list containing dictionaries of all images.
 
@@ -78,8 +70,8 @@ def create_image_list(root: xml.etree.ElementTree) -> list:
     
     return image_list
 
+
 def crop_images(image_list: list) -> tuple:
-    
     '''
         Crop all original images and adjust landmark points.
 
@@ -117,12 +109,12 @@ def crop_images(image_list: list) -> tuple:
 
     return cropped_images, adjusted_landmarks
 
+
 def augment_data(
     cropped_images: list,
     adjusted_landmarks: list,
     transform: albumentations.Compose
 ) -> tuple:
-    
     '''
         Augment data.
 
@@ -156,6 +148,7 @@ def augment_data(
     
     return augmented_images, augmented_landmarks
 
+
 transform_train = albumentations.Compose(
     [
         albumentations.Resize(height=224, width=224),
@@ -182,6 +175,7 @@ transform_train = albumentations.Compose(
         remove_invisible=False
     )
 )
+
 
 transform_test = albumentations.Compose(
     [

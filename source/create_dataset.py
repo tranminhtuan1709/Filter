@@ -1,22 +1,9 @@
-import xml.etree.ElementTree
-import numpy
 import torch
-import matplotlib
-import albumentations
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader
-import torchvision.models
-import tqdm
 import torch.optim
-import cv2
-import mediapipe
-import pandas
 
 
 class LandmarkDataset(torch.utils.data.Dataset):
     def __init__(self, images: list, landmarks: list) -> None:
-        
         '''
             Initialization.
             
@@ -34,7 +21,6 @@ class LandmarkDataset(torch.utils.data.Dataset):
         self.landmarks = landmarks
     
     def __len__(self) -> int:
-        
         '''
             Returns the length of data.
 
@@ -47,7 +33,6 @@ class LandmarkDataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, index: int) -> tuple:
-        
         '''
             Returns specified items at the given index.
 

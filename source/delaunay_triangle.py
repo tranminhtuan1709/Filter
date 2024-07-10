@@ -1,24 +1,8 @@
-import xml.etree.ElementTree
 import numpy
-import torch
-import matplotlib
-import albumentations
-from albumentations.pytorch import ToTensorV2
-from PIL import Image
-from torch.utils.data import DataLoader
-import torchvision.models
-import tqdm
-import torch.optim
 import cv2
-import mediapipe
-import pandas
-
-import create_model
-import process_input
 
     
 def get_triangle_list(landmark: numpy.ndarray) -> numpy.ndarray:
-    
     '''
         Get Delaunay Triangles from the list of landmark points.
         
@@ -32,7 +16,6 @@ def get_triangle_list(landmark: numpy.ndarray) -> numpy.ndarray:
 
     triangle_list = []
 
-    landmark = landmark.astype(numpy.float32)
     convexhull = cv2.convexHull(landmark)
     rect = cv2.boundingRect(convexhull)
     subdiv = cv2.Subdiv2D(rect)
@@ -51,14 +34,12 @@ def get_triangle_list(landmark: numpy.ndarray) -> numpy.ndarray:
     
     return numpy.array(triangle_list, dtype=numpy.int32)
 
-#_____________________________________________________________________________
 
 def get_corresponding_triangles(
     triangle_list: numpy.ndarray,
     landmarks_1: numpy.ndarray,
     landmarks_2: numpy.ndarray
 ) -> numpy.ndarray:
-    
     '''
         Get the list of Delaunay Triangles corresponding in index 
         with the given Delaunay Triangle list.
@@ -95,13 +76,16 @@ def get_corresponding_triangles(
     
     return numpy.array(corresponding_triangles, dtype=numpy.int32)
 
-#_____________________________________________________________________________
-
 
 def get_rectangle_list(triangle_list: numpy.ndarray) -> numpy.ndarray:
-    
     '''
-    
+        Find bounding rectangles around given triangles.
+
+        Args:
+            triangle_list (numpy.ndarray)
+        
+        Returns:
+            rectangle_list (numpy.ndarray)
     '''
     
     rectangle_list = []
@@ -112,23 +96,24 @@ def get_rectangle_list(triangle_list: numpy.ndarray) -> numpy.ndarray:
     return numpy.array(rectangle_list, dtype=numpy.int32)
 
 
-#_____________________________________________________________________________
-
 def crop_triangle(
     triangle_list: numpy.ndarray,
     rectangle_list: numpy.ndarray,
     image: numpy.ndarray
 ) -> list:
-    
     '''
-    
+        Crop triangle parts of an image.
+
+        Args:
+            triangle_list (numpy.ndarray)
+            rectangle_list (numpy.ndarray)
+            image (numpy.ndarray)
+        
+        Returns:
+            A list containing fragment triangles of the given image.
     '''
     
     cropped_triangles = []
-
-    triangle_list = numpy.int32(triangle_list)
-    rectangle_list = numpy.int32(rectangle_list)
-    image = numpy.int32(image)
     
     for i in range(len(triangle_list)):
         p1 = triangle_list[i][0]
