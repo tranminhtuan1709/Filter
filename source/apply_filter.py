@@ -179,8 +179,8 @@ filter_image, filter_landmark = load_filter('resources/filters/anonymous')
 result = apply_filter(
     face_image=img,
     face_landmark=adjusted_landmarks[0],
-    filter_image=img,
-    filter_landamrk=adjusted_landmarks[1]
+    filter_image=filter_image,
+    filter_landamrk=filter_landmark
 )
 
 cv2.imshow('Result', result)
