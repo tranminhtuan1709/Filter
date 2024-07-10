@@ -33,9 +33,9 @@ def get_triangle_list(landmark: numpy.ndarray) -> numpy.ndarray:
     triangle_list = []
 
     landmark = landmark.astype(numpy.float32)
-    face_convexhull = cv2.convexHull(landmark)
-    face_rect = cv2.boundingRect(face_convexhull)
-    subdiv = cv2.Subdiv2D(face_rect)
+    convexhull = cv2.convexHull(landmark)
+    rect = cv2.boundingRect(convexhull)
+    subdiv = cv2.Subdiv2D(rect)
     
     for point in landmark:
         subdiv.insert(point)
@@ -139,74 +139,16 @@ def crop_triangle(
              [p3[0] - rect_x, p3[1] - rect_y]]
         )
         
-        mask = numpy.zeros((rect_h, rect_w, 3), dtype=numpy.int32)
+        mask = numpy.zeros((rect_h, rect_w, 3), dtype=image.dtype)
         cropped_frag = image[
             rect_y:rect_y + rect_h,
             rect_x:rect_x + rect_w
         ]
-        
+
         cv2.fillConvexPoly(mask, points, (255, 255, 255))
         
-        cropped_triangles.append(cv2.bitwise_and(
-                cropped_frag,
-                cropped_frag,
-                mask
-            )
-        )
+        cropped = cv2.bitwise_and(cropped_frag, mask)
+
+        cropped_triangles.append(cropped)
 
     return cropped_triangles
-
-
-
-img = cv2.imread('resources/two_faces.png')
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-transform_input = albumentations.Compose(
-    [
-        albumentations.Resize(height=224, width=224),
-        albumentations.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225]
-        ),
-        
-        ToTensorV2(),
-    ]
-)
-
-model = create_model.LandmarkDetectionModel(68)
-model.load_state_dict(torch.load('resources/trained_model.pth'))
-device = torch.device('cpu')
-model.to(device)
-
-bbox = process_input.get_bounding_boxes(img)
-faces = process_input.crop_faces(bbox, img)
-landmarks = process_input.get_landmarks(model, transform_input, faces, device)
-adjusted_landmarks = process_input.adjust_landmarks(landmarks, bbox)
-
-face_1_triangles = get_triangle_list(adjusted_landmarks[0])
-face_2_triangles = get_corresponding_triangles(
-    face_1_triangles,
-    adjusted_landmarks[0],
-    adjusted_landmarks[1]
-)
-
-face_1_rectangles = get_rectangle_list(face_1_triangles)
-face_2_rectangles = get_rectangle_list(face_2_triangles)
-
-face_1_cropped_triangles = crop_triangle(
-    face_1_triangles,
-    face_1_rectangles,
-    img
-)
-
-face_2_cropped_triangles = crop_triangle(
-    face_2_triangles,
-    face_2_rectangles,
-    img
-)
-
-
-cv2.imshow('Final landmarks', img)
-
-cv2.waitKey(0)
-cv2.destroyAllWindows()
