@@ -142,3 +142,4 @@ def crop_triangle(
         cropped_triangles.append(cropped)
 
     return cropped_triangles
+#ham nay dung, chac chan

@@ -1,8 +1,10 @@
+import matplotlib.pyplot
 import numpy
 import cv2
 import pandas
 
 import delaunay_triangle
+import matplotlib
 
 
 def load_filter(filter_path: str) -> tuple:
@@ -19,7 +21,6 @@ def load_filter(filter_path: str) -> tuple:
     '''
     
     filter_image = cv2.imread(filter_path + '.png')
-    filter_image = cv2.cvtColor(filter_image, cv2.COLOR_BGR2RGB)
     
     df = pandas.read_csv(filter_path + '_annotations.csv')
     
@@ -75,6 +76,8 @@ def show_landmark(landmark: numpy.ndarray, img: numpy.ndarray) -> None:
     cv2.imshow('Landmark Points', img)
 
 
+
+
 def apply_filter(
     face_image: numpy.ndarray,
     face_landmark: numpy.ndarray,
@@ -95,93 +98,105 @@ def apply_filter(
         Returns:
             result (numpy.ndarray): an image that is applied a filter.
     '''
-
-    face_triangles = delaunay_triangle.get_triangle_list(
-        landmark=face_landmark
-    )
-
-    filter_triangles = delaunay_triangle.get_corresponding_triangles(
-        triangle_list=face_triangles,
-        landmarks_1=face_landmark,
-        landmarks_2=filter_landmark
-    )
-
-    face_rectangles = delaunay_triangle.get_rectangle_list(
-        triangle_list=face_triangles
-    )
-
-    filter_rectangles = delaunay_triangle.get_rectangle_list(
-        triangle_list=filter_triangles
-    )
-        
-    filter_cropped_triangles = delaunay_triangle.crop_triangle(
-        triangle_list=filter_triangles,
-        rectangle_list=filter_rectangles,
-        image=filter_image
-    )
-
-    cv2.fillConvexPoly(
-        img=face_image,
-        points=cv2.convexHull(points=face_landmark),
-        color=(0, 0, 0)
-    )
-
-    filter_affine_triangles = []
-
-    for i in range(len(face_triangles)):
-        triangle_1 = face_triangles[i]
-        triangle_2 = filter_triangles[i]
-        
-        p1 = triangle_1[0]
-        p2 = triangle_1[1]
-        p3 = triangle_1[2]
-
-        p4 = triangle_2[0]
-        p5 = triangle_2[1]
-        p6 = triangle_2[2]
-
-        x1, y1, w1, h1 = face_rectangles[i]
-        x2, y2, w2, h2 = filter_rectangles[i]
-
-        points_1 = numpy.array(
-            [[p1[0] - x1, p1[1] - y1],
-             [p2[0] - x1, p2[1] - y1],
-             [p3[0] - x1, p3[1] - y1]],
+    try:
+        face_triangles = delaunay_triangle.get_triangle_list(
+            landmark=face_landmark
         )
 
-        points_2 = numpy.array(
-            [[p4[0] - x2, p4[1] - y2],
-             [p5[0] - x2, p5[1] - y2],
-             [p6[0] - x2, p6[1] - y2]],
+        filter_triangles = delaunay_triangle.get_corresponding_triangles(
+            triangle_list=face_triangles,
+            landmarks_1=face_landmark,
+            landmarks_2=filter_landmark
         )
 
-        M = cv2.getAffineTransform(
-            numpy.float32(points_2),
-            numpy.float32(points_1)
+        face_rectangles = delaunay_triangle.get_rectangle_list(
+            triangle_list=face_triangles
         )
 
-        warped_triangle = cv2.warpAffine(
-            src=numpy.float32(filter_cropped_triangles[i]),
-            M=M,
-            dsize=(w1, h1),
-            flags=cv2.INTER_NEAREST
+        filter_rectangles = delaunay_triangle.get_rectangle_list(
+            triangle_list=filter_triangles
+        )
+            
+        filter_cropped_triangles = delaunay_triangle.crop_triangle(
+            triangle_list=filter_triangles,
+            rectangle_list=filter_rectangles,
+            image=filter_image
+        ) 
+
+        cv2.fillConvexPoly(
+            img=face_image,
+            points=cv2.convexHull(points=face_landmark),
+            color=(0, 0, 0)
         )
 
-        filter_affine_triangles.append(warped_triangle)
+        img2 = face_image
+        img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        img2_new = numpy.zeros_like(img2, dtype=numpy.int32)
 
-    for i in range(len(face_triangles)):
-        x, y, w, h = face_rectangles[i]
-        dst_area = face_image[y:y + h, x:x + w]
-        
-        if numpy.int32(filter_affine_triangles[i]).size\
-            != numpy.int32(dst_area).size:
-            return None
+        filter_affine_triangles = []
 
-        dst_area = cv2.add(
-            src1=numpy.int32(filter_affine_triangles[i]),
-            src2=numpy.int32(dst_area),
-        )
+        for i in range(len(face_triangles)):
+            triangle_1 = face_triangles[i]
+            triangle_2 = filter_triangles[i]
+            
+            p1 = triangle_1[0]
+            p2 = triangle_1[1]
+            p3 = triangle_1[2]
 
-        face_image[y:y + h, x:x + w] = dst_area
-    
-    return face_image
+            p4 = triangle_2[0]
+            p5 = triangle_2[1]
+            p6 = triangle_2[2]
+
+            x1, y1, w1, h1 = face_rectangles[i]
+            x2, y2, w2, h2 = filter_rectangles[i]
+
+            points_1 = numpy.array(
+                [[p1[0] - x1, p1[1] - y1],
+                [p2[0] - x1, p2[1] - y1],
+                [p3[0] - x1, p3[1] - y1]],
+            )
+
+            points_2 = numpy.array(
+                [[p4[0] - x2, p4[1] - y2],
+                [p5[0] - x2, p5[1] - y2],
+                [p6[0] - x2, p6[1] - y2]],
+            )
+
+            M = cv2.getAffineTransform(
+                numpy.float32(points_2),
+                numpy.float32(points_1)
+            )
+            
+
+            warped_triangle = cv2.warpAffine(
+                src=numpy.float32(filter_cropped_triangles[i]),
+                M=M,
+                dsize=(w1, h1),
+                flags=cv2.INTER_NEAREST
+            )
+
+            filter_affine_triangles.append(warped_triangle)
+
+        for i in range(len(face_triangles)):
+            x, y, w, h = face_rectangles[i]
+            dst_area = face_image[y:y + h, x:x + w]
+
+            img2_new_area_gray = cv2.cvtColor(dst_area, cv2.COLOR_BGR2GRAY)
+            _, mask_designed = cv2.threshold(img2_new_area_gray, 1, 255, cv2.THRESH_BINARY_INV)
+            filter_affine_triangles[i] = cv2.bitwise_and(
+                numpy.uint8(filter_affine_triangles[i]),
+                numpy.uint8(filter_affine_triangles[i]),
+                mask=mask_designed
+            )
+
+            dst_area = cv2.add(filter_affine_triangles[i], dst_area)
+            
+            if numpy.int32(filter_affine_triangles[i]).size\
+                != numpy.uint8(dst_area).size:
+                return None
+
+            face_image[y:y + h, x:x + w] = dst_area
+
+        return face_image
+    except:
+        return face_image
