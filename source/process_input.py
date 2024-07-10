@@ -105,7 +105,6 @@ def adjust_landmark(
     '''
     
     adjusted_landmark = []
-    print('bounding box haha:', bounding_box)
 
     box_x, box_y, box_w, box_h = bounding_box
     

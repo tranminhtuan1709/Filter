@@ -21,7 +21,7 @@ def get_triangle_list(landmark: numpy.ndarray) -> numpy.ndarray:
     subdiv = cv2.Subdiv2D(rect)
     
     for point in landmark:
-        subdiv.insert(point)
+        subdiv.insert(numpy.float32(point))
     
     triangles = subdiv.getTriangleList()
 
@@ -57,7 +57,7 @@ def get_corresponding_triangles(
     '''
     
     corresponding_triangles = []
-    
+
     for triangle in triangle_list:
         p1 = triangle[0]
         p2 = triangle[1]
@@ -133,7 +133,7 @@ def crop_triangle(
             rect_x:rect_x + rect_w
         ]
 
-        mask = numpy.zeros(cropped_frag.shape, dtype=numpy.int32)
+        mask = numpy.zeros(cropped_frag.shape, dtype=cropped_frag.dtype)
 
         cv2.fillConvexPoly(mask, points, (255, 255, 255))
         

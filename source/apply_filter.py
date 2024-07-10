@@ -164,6 +164,7 @@ def apply_filter(
             src=numpy.float32(filter_cropped_triangles[i]),
             M=M,
             dsize=(w1, h1),
+            flags=cv2.INTER_NEAREST
         )
 
         filter_affine_triangles.append(warped_triangle)
@@ -171,6 +172,11 @@ def apply_filter(
     for i in range(len(face_triangles)):
         x, y, w, h = face_rectangles[i]
         dst_area = face_image[y:y + h, x:x + w]
+        
+        if numpy.int32(filter_affine_triangles[i]).size\
+            != numpy.int32(dst_area).size:
+            return None
+
         dst_area = cv2.add(
             src1=numpy.int32(filter_affine_triangles[i]),
             src2=numpy.int32(dst_area),
