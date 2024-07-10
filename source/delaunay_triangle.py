@@ -125,6 +125,10 @@ def crop_triangle(
     '''
     
     cropped_triangles = []
+
+    triangle_list = numpy.int32(triangle_list)
+    rectangle_list = numpy.int32(rectangle_list)
+    image = numpy.int32(image)
     
     for i in range(len(triangle_list)):
         p1 = triangle_list[i][0]
@@ -139,11 +143,12 @@ def crop_triangle(
              [p3[0] - rect_x, p3[1] - rect_y]]
         )
         
-        mask = numpy.zeros((rect_h, rect_w, 3), dtype=image.dtype)
         cropped_frag = image[
             rect_y:rect_y + rect_h,
             rect_x:rect_x + rect_w
         ]
+
+        mask = numpy.zeros(cropped_frag.shape, dtype=numpy.int32)
 
         cv2.fillConvexPoly(mask, points, (255, 255, 255))
         
