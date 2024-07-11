@@ -1,4 +1,3 @@
-import matplotlib.pyplot
 import numpy
 import cv2
 import pandas
@@ -76,13 +75,12 @@ def show_landmark(landmark: numpy.ndarray, img: numpy.ndarray) -> None:
     cv2.imshow('Landmark Points', img)
 
 
-
-
 def apply_filter(
     face_image: numpy.ndarray,
     face_landmark: numpy.ndarray,
     filter_image: numpy.ndarray,
     filter_landmark: numpy.ndarray,
+    flag: str
 ) -> numpy.ndarray:
     '''
         Apply filter image onto the given image.
@@ -99,6 +97,9 @@ def apply_filter(
             result (numpy.ndarray): an image that is applied a filter.
     '''
     try:
+
+        face_clone = numpy.array(face_image)
+
         face_triangles = delaunay_triangle.get_triangle_list(
             landmark=face_landmark
         )
@@ -131,7 +132,6 @@ def apply_filter(
 
         img2 = face_image
         img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        img2_new = numpy.zeros_like(img2, dtype=numpy.int32)
 
         filter_affine_triangles = []
 
@@ -197,6 +197,22 @@ def apply_filter(
 
             face_image[y:y + h, x:x + w] = dst_area
 
-        return face_image
+        if flag == 'filter':
+            return face_image
+
+        convexhull2 = cv2.convexHull(face_landmark)
+        img2_face_mask = numpy.zeros_like(img2_gray)
+        img2_head_mask = cv2.fillConvexPoly(img2_face_mask, convexhull2, 255)
+        img2_face_mask = cv2.bitwise_not(img2_head_mask)
+
+
+        img2_head_noface = cv2.bitwise_and(img2, img2, mask=img2_face_mask)
+        result = cv2.add(img2_head_noface, face_image)
+
+        (x, y, w, h) = cv2.boundingRect(convexhull2)
+        center_face2 = (int((x + x + w) / 2), int((y + y + h) / 2))
+
+        seamlessclone = cv2.seamlessClone(result, face_clone, img2_head_mask, center_face2, cv2.MIXED_CLONE)
+        return seamlessclone
     except:
         return face_image
