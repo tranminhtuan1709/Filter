@@ -7,22 +7,23 @@ import mediapipe
 import create_model
 
 
-def get_bounding_boxes(image: numpy.ndarray) -> list:
+def get_bounding_box(image: numpy.ndarray) -> tuple:
     '''
-        Get all bounding boxes around human faces in an image.
+        Get the largest bounding box around a human face in an image.
 
         Args:
             image (numpy.ndarray)
         
         Returns:
-            A list containing all bounding boxes of human faces.
+            A tuple contains coordinates of the top left point and the width
+            and height of the largest bounding box.
     '''
     
     bounding_boxes = []
     
     mp_face_detection = mediapipe.solutions.face_detection
     
-    with mp_face_detection.FaceDetection(min_detection_confidence=0.2)\
+    with mp_face_detection.FaceDetection(min_detection_confidence=0.5)\
     as face_detection:
         results = face_detection.process(image)
 
@@ -37,34 +38,38 @@ def get_bounding_boxes(image: numpy.ndarray) -> list:
                 
                 bounding_boxes.append((x, y, w, h))
     
-    return numpy.array(bounding_boxes, dtype=numpy.int32)
+    largest_bbox = bounding_boxes[0]
+
+    for bbox in bounding_boxes:
+        if bbox[2] * bbox[3] > largest_bbox[2] * largest_bbox[3]:
+            largest_bbox = bbox
+    
+    return largest_bbox
 
 
-def crop_faces(bounding_boxes: list, image: numpy.ndarray) -> list:
+def crop_face(bounding_box: tuple, image: numpy.ndarray) -> numpy.ndarray:
     '''
-        Crop human faces following the give bounding box list.
+        Crop the human face following a given bounding box.
 
         Args:
-            bounding_boxes (list)
+            bounding_boxes (tuple)
             image (numpy.ndarray)
 
         Returns:
-            A list containing parts of the given image that contain human faces.
+            The cropped face.
     '''
-    
-    faces = []
-    
-    for x, y, w, h in bounding_boxes:
-        faces.append(image[y:y + h, x:x + w])
-    
-    return faces
+
+    x, y, w, h = bounding_box
+
+    return image[y:y + h, x:x + w]
 
 
-def get_landmark(
+def get_landmarks(
     model: create_model.LandmarkDetectionModel,
     transformation: albumentations.Compose,
     image: numpy.ndarray,
-    device: torch.device
+    device: torch.device,
+    bounding_box: tuple
 ) -> numpy.ndarray:
     '''
         Find landmark points in an image that containing only one object.
@@ -74,44 +79,28 @@ def get_landmark(
             transformation (albumentations.Compose)
             faces (list)
             device (torch.device)
+            bounding_box (tuple)
 
         Returns:
             68 landmark points for the object in the given image.
     '''
 
     image = transformation(image=image)['image'].unsqueeze(0)
-    face = image.to(device)
+    image = image.to(device)
     model.to(device)
     
-    landmark = model(image).squeeze(0).squeeze(0)
-        
-    return landmark.cpu().detach().numpy()
+    transformed_landmarks = model(image).squeeze(0).squeeze(0)
+    transformed_landmarks = transformed_landmarks.cpu().detach().numpy()
 
+    detransformed_landmarks = []
 
-def adjust_landmark(
-    landmark: numpy.ndarray,
-    bounding_box: list
-) -> numpy.ndarray:
-    '''
-        Adjust coordinates of landmark points following the size of the
-        original image.
+    x, y, w, h = bounding_box
 
-        Args:
-            landmark (numpy.ndarray)
-            bounding_box (list)
-
-        Returns:
-            Adjusted landmark points.
-    '''
+    for point in transformed_landmarks:
+        detransformed_landmarks.append([
+                (point[0] + 0.5) * w + x,
+                (point[1] + 0.5) * h + y
+            ]
+        )
     
-    adjusted_landmark = []
-
-    box_x, box_y, box_w, box_h = bounding_box
-    
-    for x, y in landmark:
-        x = (x + 0.5) * box_w + box_x
-        y = (y + 0.5) * box_h + box_y
-        
-        adjusted_landmark.append([x, y])
-    
-    return numpy.array(adjusted_landmark, dtype=numpy.int32)
+    return numpy.int32(detransformed_landmarks)
