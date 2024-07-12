@@ -2,8 +2,144 @@ import numpy
 import cv2
 import pandas
 
-import delaunay_triangle
-import matplotlib
+
+def get_triangles(landmarks: numpy.ndarray) -> numpy.ndarray:
+    '''
+        Get Delaunay Triangles from the list of landmark points.
+        
+        Args:
+            landmarks (numpy.ndarray)
+        
+        Returns:
+            A numpy.ndarray contains Delaunay Triangles, each triangle
+            is presented by its coordinates x and y.
+    '''
+
+    triangle_list = []
+
+    convexhull = cv2.convexHull(landmarks)
+    rect = cv2.boundingRect(convexhull)
+    subdiv = cv2.Subdiv2D(rect)
+    
+    for point in landmarks:
+        subdiv.insert(numpy.float32(point))
+    
+    triangles = subdiv.getTriangleList()
+
+    for triangle in triangles:
+        p1 = [triangle[0], triangle[1]]
+        p2 = [triangle[2], triangle[3]]
+        p3 = [triangle[4], triangle[5]]
+
+        triangle_list.append([p1, p2, p3])
+    
+    return numpy.array(triangle_list, dtype=numpy.int32)
+
+
+def get_corresponding_triangles(
+    triangles_1: numpy.ndarray,
+    landmarks_1: numpy.ndarray,
+    landmarks_2: numpy.ndarray
+) -> numpy.ndarray:
+    '''
+        Get the list of Delaunay Triangles corresponding in index 
+        with the given Delaunay Triangle list.
+        
+        Args:
+            triangles_1 (numpy.ndarray)
+            landmarks_1 (numpy.ndarray)
+            landmarks_2 (numpy.ndarray)
+        
+        Returns:
+            A list containing numpy.ndarray, each numpy.ndarray
+            contains coordinates of 3 points in landmarks_2 forming
+            a triangle that corresponding in index with a triangle
+            in the give triangle list.
+    '''
+    
+    corresponding_triangles = []
+
+    for triangle in triangles_1:
+        p1 = triangle[0]
+        p2 = triangle[1]
+        p3 = triangle[2]
+        
+        index_p1 = numpy.where((landmarks_1 == p1).all(axis=1))[0][0]
+        index_p2 = numpy.where((landmarks_1 == p2).all(axis=1))[0][0]
+        index_p3 = numpy.where((landmarks_1 == p3).all(axis=1))[0][0]
+                    
+        corresponding_triangles.append([
+                landmarks_2[index_p1],
+                landmarks_2[index_p2],
+                landmarks_2[index_p3]
+            ]
+        )
+    
+    return numpy.array(corresponding_triangles, dtype=numpy.int32)
+
+
+def get_rectangles(triangles: numpy.ndarray) -> numpy.ndarray:
+    '''
+        Find bounding rectangles around given triangles.
+
+        Args:
+            triangles (numpy.ndarray)
+        
+        Returns:
+            rectangles (numpy.ndarray)
+    '''
+    
+    rectangles = []
+    
+    for triangle in triangles:
+        rectangles.append(cv2.boundingRect(triangle))
+    
+    return numpy.array(rectangles, dtype=numpy.int32)
+
+
+def crop_triangle(
+    triangles: numpy.ndarray,
+    rectangles: numpy.ndarray,
+    image: numpy.ndarray
+) -> list:
+    '''
+        Crop triangle parts of an image.
+
+        Args:
+            triangle_list (numpy.ndarray)
+            rectangle_list (numpy.ndarray)
+            image (numpy.ndarray)
+        
+        Returns:
+            A list containing fragment triangles of the given image.
+    '''
+    
+    cropped_triangles = []
+    
+    for i in range(len(triangles)):
+        p1 = triangles[i][0]
+        p2 = triangles[i][1]
+        p3 = triangles[i][2]
+        
+        x, y, w, h = rectangles[i]
+        
+        points = numpy.array(
+            [[p1[0] - x, p1[1] - y],
+             [p2[0] - x, p2[1] - y],
+             [p3[0] - x, p3[1] - y]]
+        )
+        
+        image_frag = image[y:y + h, x:x + w]
+
+        mask = numpy.zeros((h, w), dtype=numpy.uint8)
+
+        cv2.fillConvexPoly(mask, points, (255, 255, 255))
+        
+        cropped_triangles.append(
+            cv2.bitwise_and(image_frag, image_frag, mask=mask)
+        )
+
+    return cropped_triangles
 
 
 def load_filter(filter_path: str) -> tuple:
@@ -26,53 +162,9 @@ def load_filter(filter_path: str) -> tuple:
     x = df.iloc[:, 1].values
     y = df.iloc[:, 2].values
     
-    filter_landmark = numpy.column_stack((x, y))
+    filter_landmarks = numpy.column_stack((x, y))
 
-    return filter_image, filter_landmark
-
-
-def show_triangles(triangles: numpy.ndarray, img: numpy.ndarray) -> None:
-    '''
-        Show Delaunay Triangles on the given image.
-
-        Args:
-            triangles (numpy.ndarray): contains delaunay triangles.
-            img (numpy.ndarray): the given image.
-        
-        Returns:
-            None
-    '''
-
-    for triangle in triangles:
-        p1 = triangle[0]
-        p2 = triangle[1]
-        p3 = triangle[2]
-
-        cv2.line(img=img, pt1=p1, pt2=p2, color=(0, 255, 0), thickness=1)
-        cv2.line(img=img, pt1=p2, pt2=p3, color=(0, 255, 0), thickness=1)
-        cv2.line(img=img, pt3=p1, pt2=p1, color=(0, 255, 0), thickness=1)
-    
-    cv2.imshow(winname='Delaunay Trianglation', mat=img)
-
-
-def show_landmark(landmark: numpy.ndarray, img: numpy.ndarray) -> None:
-    '''
-        Show landmark points on the given image.
-
-        Args:
-            landmark (numpy.ndarray): the given landmark points to be shown.
-            img (numpy.ndarray): the given image.
-        
-        Returns:
-            None
-    '''
-
-    for point in landmark:
-        cv2.circle(
-            img=img, center=point, radius=2, color=(255, 0, 0), thickness=-1
-        )
-    
-    cv2.imshow('Landmark Points', img)
+    return filter_image, filter_landmarks
 
 
 def apply_filter(

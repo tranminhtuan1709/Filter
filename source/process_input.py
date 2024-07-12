@@ -22,7 +22,7 @@ def get_bounding_boxes(image: numpy.ndarray) -> list:
     
     mp_face_detection = mediapipe.solutions.face_detection
     
-    with mp_face_detection.FaceDetection(min_detection_confidence=0.5)\
+    with mp_face_detection.FaceDetection(min_detection_confidence=0.2)\
     as face_detection:
         results = face_detection.process(image)
 
